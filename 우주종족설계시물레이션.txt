@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>외계 형질 조합 연구: 변이 아닌 종족</title>
+    <!-- Tailwind CSS CDN 로드 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'module-alpha': '#10B981', // Emerald Green (α)
+                        'module-beta': '#F59E0B',  // Amber Yellow (β)
+                        'module-gamma': '#3B82F6', // Blue (γ)
+                        'module-delta': '#EC4899', // Pink (δ)
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 기본 폰트 설정 */
+        body { font-family: 'Inter', sans-serif; }
+        
+        /* 드래그 가능 요소의 커서 스타일 */
+        .module { cursor: grab; transition: transform 0.1s ease, opacity 0.3s ease; }
+        .module:active { transform: scale(1.05); }
+
+        /* 드래그 중인 요소 스타일 */
+        .dragging { opacity: 0.5; }
+
+        /* 드롭 슬롯 스타일 */
+        .drop-slot {
+            transition: background-color 0.2s ease;
+            box-shadow: 0 0 0 2px #E5E7EB; 
+        }
+        
+        /* 드래그 진입 시 하이라이트 */
+        .drop-slot.drag-over {
+            background-color: #A78BFA; /* 보라색 하이라이트 */
+            box-shadow: 0 0 0 3px #8B5CF6;
+        }
+
+        /* 형질 프레임 레이블 (왼쪽) 스타일 */
+        .trait-frame-label {
+            width: 120px; /* 너비를 늘려 가독성 확보 */
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px 0 0 8px;
+            font-weight: bold;
+            color: white;
+            background-color: #4B5563; /* 프레임 색상 */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            font-size: 0.875rem; /* sm 폰트 크기 */
+        }
+
+        /* 결과 카드 스타일 */
+        .result-creature-card {
+            background: linear-gradient(135deg, #1f2937, #374151); /* 다크 그레이 그라데이션 */
+            color: #D1D5DB;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-900 min-h-screen p-4 md:p-8 text-white">
+
+    <div id="app" class="max-w-6xl mx-auto">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-extrabold text-blue-400 tracking-tight">🌌 우주 종족 설계 시뮬레이터 🛠️</h1>
+            <p class="text-gray-400 mt-2 text-lg">어떤 조합이든 고유한 종족입니다. 자유롭게 형질을 조합해 보세요.</p>
+        </header>
+
+        <main class="flex flex-col md:flex-row gap-8">
+            <!-- 1. 유전자 모듈 풀 -->
+            <section class="gene-pool p-6 bg-gray-800 rounded-xl shadow-2xl md:w-1/3 border border-blue-600">
+                <h2 class="text-2xl font-semibold mb-4 text-blue-300 border-b border-blue-700 pb-2">유전적 모듈 풀</h2>
+                <div id="gene-pool-container" class="grid grid-cols-2 gap-4">
+                    <div class="module p-3 text-center rounded-lg shadow-md select-none bg-module-alpha text-white font-bold text-lg" draggable="true" id="Module1" data-label="α">α 모듈 (이동)</div>
+                    <div class="module p-3 text-center rounded-lg shadow-md select-none bg-module-beta text-white font-bold text-lg" draggable="true" id="Module2" data-label="β">β 모듈 (감각)</div>
+                    <div class="module p-3 text-center rounded-lg shadow-md select-none bg-module-gamma text-white font-bold text-lg" draggable="true" id="Module3" data-label="γ">γ 모듈 (방어)</div>
+                    <div class="module p-3 text-center rounded-lg shadow-md select-none bg-module-delta text-white font-bold text-lg" draggable="true" id="Module4" data-label="δ">δ 모듈 (생존)</div>
+                </div>
+            </section>
+
+            <!-- 2. 외계 형질 가닥 조립 영역 -->
+            <section class="trait-assembly-area p-6 bg-gray-800 rounded-xl shadow-2xl md:w-2/3 border border-blue-600">
+                <h2 class="text-2xl font-semibold mb-4 text-blue-300 border-b border-blue-700 pb-2">외계 형질 슬롯</h2>
+                
+                <div id="trait-strand" class="flex flex-col items-start p-4 border-2 border-blue-500 rounded-lg bg-gray-700 space-y-2">
+                    <!-- Trait Slots will be generated here by JS -->
+                </div>
+                
+                <div class="mt-6 flex justify-center">
+                    <button id="check-btn" class="px-8 py-3 bg-purple-600 text-white font-bold rounded-xl shadow-lg hover:bg-purple-700 transition duration-300 transform hover:scale-105">
+                        🌟 외계 종족 발현 확인
+                    </button>
+                </div>
+            </section>
+        </main>
+        
+        <!-- 3. 결과 및 생명체 디스플레이 -->
+        <section class="mt-8 p-6 rounded-xl shadow-xl result-creature-card border border-purple-400">
+            <h2 class="text-3xl font-bold mb-4 text-white">결과: 발현된 새로운 종족</h2>
+            <div id="result-message" class="text-xl font-medium text-yellow-300 mb-4">
+                모든 형질 슬롯에 모듈을 조합하고 [외계 종족 발현 확인] 버튼을 누르세요.
+            </div>
+            <div id="creature-display" class="bg-gray-900 p-4 rounded-lg text-center min-h-[100px] flex flex-col justify-center items-center border border-gray-700">
+                <span class="text-6xl" id="creature-emoji">❓</span>
+                <p class="text-2xl font-bold mt-2 text-purple-300" id="creature-name">미확인 우주 생명체</p>
+                <div id="creature-trait" class="mt-3 text-left w-full max-w-lg mx-auto p-2 bg-gray-800 rounded-lg">
+                    <p class="text-sm text-gray-400">조합이 완료되면 발현된 외계 형질 목록이 나타납니다.</p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const traitStrand = document.getElementById('trait-strand');
+            const checkBtn = document.getElementById('check-btn');
+            const resultMessage = document.getElementById('result-message');
+            const creatureEmoji = document.getElementById('creature-emoji');
+            const creatureName = document.getElementById('creature-name');
+            const creatureTrait = document.getElementById('creature-trait');
+
+            // --- 게임 설정 (외계인 형질 모듈 템플릿) ---
+            const TEMPLATE_SEQUENCE = [
+                { 
+                    traitName: '이동 방식', 
+                    outcomes: {
+                        'Module1': '거대한 비막 날개', 
+                        'Module2': '다수의 미세 다리', 
+                        'Module3': '강력한 지면 도약 근육', 
+                        'Module4': '자기 부상 발판' 
+                    }
+                },
+                { 
+                    traitName: '감각 기관', 
+                    outcomes: {
+                        'Module1': '고주파 소리 감지 안테나', 
+                        'Module2': '360도 시야를 가진 두 쌍의 눈 (4개)', 
+                        'Module3': '슬릿형 청각 기관', 
+                        'Module4': '전자기파 감지 센서' 
+                    }
+                },
+                { 
+                    traitName: '방어 체계',     
+                    outcomes: {
+                        'Module1': '길고 날카로운 공격형 발톱', 
+                        'Module2': '두꺼운 갑각 보호막', 
+                        'Module3': '신경 독소 분비 피부', 
+                        'Module4': '광학 위장막' 
+                    }
+                },
+                { 
+                    traitName: '표피 구조', 
+                    outcomes: {
+                        'Module1': '불타는 듯한 붉은색 섬모', 
+                        'Module2': '은하수를 담은 보라색 피부', 
+                        'Module3': '투명한 유리 피부', 
+                        'Module4': '주변 환경에 맞춘 변색 비늘' 
+                    }
+                },
+                { 
+                    traitName: '생체 연료', 
+                    outcomes: {
+                        'Module1': '단안 (Cyclops) 및 열 감지', 
+                        'Module2': '태양 에너지 흡수판', 
+                        'Module3': '매우 큰 폐 (고밀도 행성 적합)', 
+                        'Module4': '메탄 흡수 아가미' 
+                    }
+                },
+                { 
+                    traitName: '지능 구조',     
+                    outcomes: {
+                        'Module1': '분산된 신경망 (군체 지능)', 
+                        'Module2': '광범위한 기억력을 가진 두뇌', 
+                        'Module3': '직렬 처리형 두뇌 (고속 연산)', 
+                        'Module4': '단일 집중형 두뇌 (강한 의지)' 
+                    }
+                },
+            ];
+
+            // 모듈 ID를 레이블에 매핑
+            const MODULE_LABELS = {
+                'Module1': 'α',
+                'Module2': 'β',
+                'Module3': 'γ',
+                'Module4': 'δ',
+            };
+            
+            // 모듈 ID를 색상 클래스에 매핑
+            const MODULE_COLORS = {
+                'Module1': 'bg-module-alpha',
+                'Module2': 'bg-module-beta',
+                'Module3': 'bg-module-gamma',
+                'Module4': 'bg-module-delta',
+            };
+
+
+            // --- 초기 형질 가닥 렌더링 ---
+            function renderTraitStrand() {
+                traitStrand.innerHTML = '';
+                TEMPLATE_SEQUENCE.forEach((item, index) => {
+                    const pairDiv = document.createElement('div');
+                    pairDiv.className = 'trait-pair-item w-full flex items-center justify-start space-x-4';
+                    pairDiv.dataset.index = index;
+
+                    // 1. 형질 프레임 레이블 (왼쪽)
+                    const frameLabel = document.createElement('div');
+                    frameLabel.className = `trait-frame-label`;
+                    frameLabel.textContent = item.traitName;
+                    pairDiv.appendChild(frameLabel);
+
+                    // 2. 드롭 슬롯 (오른쪽, 사용자가 채울 공간)
+                    const dropSlot = document.createElement('div');
+                    dropSlot.className = 'drop-slot w-64 p-2 h-10 rounded-r-lg rounded-l-lg bg-gray-600 flex justify-center items-center text-gray-300 font-medium';
+                    dropSlot.textContent = `모듈 드롭 공간`;
+                    dropSlot.id = `slot-${index}`;
+                    
+                    pairDiv.appendChild(dropSlot);
+                    traitStrand.appendChild(pairDiv);
+                });
+                setupDropHandlers();
+                resetResults();
+            }
+
+            // --- 드래그 핸들러 설정 ---
+            function setupDragHandlers() {
+                const modules = document.querySelectorAll('.module');
+                modules.forEach(mod => {
+                    mod.addEventListener('dragstart', (e) => {
+                        e.dataTransfer.setData('moduleId', e.target.id);
+                        e.dataTransfer.setData('moduleLabel', e.target.dataset.label);
+                        e.dataTransfer.setData('moduleColor', MODULE_COLORS[e.target.id]);
+                        e.target.classList.add('dragging');
+                    });
+                    mod.addEventListener('dragend', (e) => {
+                        e.target.classList.remove('dragging');
+                    });
+                });
+            }
+
+            // --- 드롭 핸들러 설정 ---
+            function setupDropHandlers() {
+                const dropSlots = document.querySelectorAll('.drop-slot');
+                dropSlots.forEach(slot => {
+                    slot.addEventListener('dragenter', (e) => {
+                        e.preventDefault();
+                        if (slot.children.length === 0) { slot.classList.add('drag-over'); }
+                    });
+
+                    slot.addEventListener('dragover', (e) => { e.preventDefault(); });
+
+                    slot.addEventListener('dragleave', (e) => { slot.classList.remove('drag-over'); });
+
+                    slot.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        slot.classList.remove('drag-over');
+
+                        if (slot.children.length > 0) {
+                            slot.children[0].remove();
+                        }
+                        
+                        const moduleId = e.dataTransfer.getData('moduleId');
+                        const moduleLabel = e.dataTransfer.getData('moduleLabel');
+                        const moduleColor = e.dataTransfer.getData('moduleColor');
+                        
+                        // 복제된 드롭 요소 생성
+                        const droppedModule = document.createElement('div');
+                        droppedModule.id = moduleId; // 모듈 ID 유지
+                        droppedModule.textContent = `${moduleLabel} 모듈`;
+                        droppedModule.className = `w-full h-full flex items-center justify-center text-base font-bold text-white rounded-lg ${moduleColor}`;
+                        
+                        slot.textContent = '';
+                        slot.appendChild(droppedModule);
+
+                        showMessage('✅ 유전 모듈 결합 완료. 다른 형질도 조합하세요.', 'blue');
+                        resetResults(false);
+                    });
+                });
+            }
+            
+            // --- 결과 초기화 ---
+            function resetResults(clearAll = true) {
+                if (clearAll) {
+                    creatureEmoji.textContent = '❓';
+                    creatureName.textContent = '미확인 우주 생명체';
+                    creatureTrait.innerHTML = '<p class="text-sm text-gray-400">조합이 완료되면 발현된 외계 형질 목록이 나타납니다.</p>';
+                    // 슬롯 초기화
+                    document.querySelectorAll('.drop-slot').forEach(slot => {
+                        slot.innerHTML = '';
+                        slot.textContent = '모듈 드롭 공간';
+                        slot.classList.remove('bg-gray-700');
+                    });
+                }
+                resultMessage.textContent = '모든 형질 슬롯에 모듈을 조합하고 [외계 종족 발현 확인] 버튼을 누르세요.';
+                resultMessage.className = 'text-xl font-medium mb-4 text-yellow-300';
+            }
+
+            // --- 메시지 표시 함수 (alert 대신 사용) ---
+            function showMessage(text, color) {
+                resultMessage.textContent = text;
+                resultMessage.className = 'text-xl font-medium mb-4';
+                resultMessage.classList.add(`text-${color}-500`);
+            }
+            
+            /**
+             * 모듈 사용 횟수를 기반으로 외계 종족의 이름을 결정합니다.
+             * 돌연변이/실패 대신 조합의 특성을 나타내는 중립적인 이름을 부여합니다.
+             */
+            function determineSpeciesName(counts) {
+                const totalModules = Object.values(counts).reduce((a, b) => a + b, 0);
+                if (totalModules !== TEMPLATE_SEQUENCE.length) return { name: '미완성 프로토타입', emoji: '⚙️' };
+
+                // 1. 모듈별 사용 횟수를 내림차순으로 정렬
+                const sortedCounts = Object.entries(counts)
+                    .filter(([id, count]) => count > 0)
+                    .sort(([, a], [, b]) => b - a);
+
+                const countMap = sortedCounts.map(([id, count]) => ({
+                    module: MODULE_LABELS[id],
+                    count: count,
+                    id: id
+                }));
+                
+                const maxCount = countMap.length > 0 ? countMap[0].count : 0;
+                
+                let name = '';
+                let emoji = '';
+
+                // A. 단일 모듈 우성 (4개 이상)
+                if (maxCount >= 4) {
+                    const dominantModule = countMap[0].module;
+                    name = `${dominantModule} 우성: 은하계 지배자 종족`;
+                    emoji = '👑';
+                }
+                // B. 이중 모듈 우성 (3:3 또는 4:2)
+                else if (maxCount >= 3 && countMap.length >= 2 && countMap[1].count >= 2) {
+                    const primary = countMap[0].module;
+                    const secondary = countMap[1].module;
+                    name = `${primary}-${secondary} 이중: 균형 잡힌 정복자 종족`;
+                    emoji = '⚔️';
+                }
+                // C. 균형 잡힌 하이브리드 (3개 또는 4개의 모듈을 골고루 사용)
+                else if (countMap.length === 4) {
+                    name = '쿼드 하이브리드: 예측 불가능한 적응 종족';
+                    emoji = '🧪';
+                }
+                // D. 희귀하고 극단적인 조합 (2개 모듈만 사용 등)
+                else {
+                    name = '미분류 종족: 심우주 탐사 종족';
+                    emoji = '🛸';
+                }
+                
+                return { name, emoji };
+            }
+
+            // --- 조합 확인 로직 ---
+            checkBtn.addEventListener('click', () => {
+                const dropSlots = document.querySelectorAll('.drop-slot');
+                const moduleCounts = { 'Module1': 0, 'Module2': 0, 'Module3': 0, 'Module4': 0 };
+                let incomplete = false;
+                
+                const traits = []; // 발현된 형질 목록
+
+                dropSlots.forEach(slot => {
+                    const droppedModuleElement = slot.children[0];
+                    if (!droppedModuleElement) {
+                        incomplete = true;
+                        return;
+                    }
+
+                    const index = parseInt(slot.id.split('-')[1]);
+                    const geneInfo = TEMPLATE_SEQUENCE[index];
+                    const droppedModuleId = droppedModuleElement.id;
+                    
+                    // 모듈 사용 횟수 기록
+                    moduleCounts[droppedModuleId]++;
+
+                    // 결과 형질 가져오기: 드롭된 모듈 ID에 따라 형질이 결정됨
+                    const resultantTraitValue = geneInfo.outcomes[droppedModuleId] || '알 수 없는 형질';
+
+                    // 최종 특성 조합 (중립적 표시)
+                    traits.push(`
+                        <div class="flex justify-between items-start py-1 border-b border-gray-700 last:border-b-0">
+                            <span class="text-purple-300">${geneInfo.traitName}:</span>
+                            <div class="text-right">
+                                <span class="text-white">${resultantTraitValue}</span><br>
+                                <span class="text-xs text-gray-400">(${MODULE_LABELS[droppedModuleId]} 모듈 발현)</span>
+                            </div>
+                        </div>
+                    `);
+                });
+
+                if (incomplete) {
+                    showMessage('⚠️ 모든 형질 슬롯에 모듈을 드롭해야 발현을 확인할 수 있습니다.', 'orange');
+                    return;
+                }
+                
+                // 결과에 따른 생명체 생성
+                creatureTrait.innerHTML = traits.join('');
+                
+                // 새로운 종족 이름 결정
+                const { name, emoji } = determineSpeciesName(moduleCounts);
+                
+                creatureEmoji.textContent = emoji;
+                creatureName.textContent = name;
+                showMessage(`✅ 종족 발현 완료: [${name}]이 탄생했습니다. 새로운 조합을 시도해 보세요!`, 'green');
+            });
+            
+            // --- 초기 실행 ---
+            renderTraitStrand();
+            setupDragHandlers();
+        });
+    </script>
+</body>
+</html>
